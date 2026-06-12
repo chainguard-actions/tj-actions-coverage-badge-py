@@ -1,0 +1,54 @@
+name: coverage.py badge
+description: Generate a coverage.py badge
+author: tj-actions
+inputs:
+  output:
+    description: 'Output path to write the coverage badge.'
+    required: false
+    default: 'coverage.svg'
+  overwrite:
+    description: 'Overwrite an existing coverage badge.'
+    required: false
+    default: 'true'
+  working-directory:
+    description: 'Current working directory'
+    required: false
+    default: '.'
+runs:
+  using: 'composite'
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - id: coverage-badge
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        OVERWRITE: ${{ inputs.overwrite }}
+        OUTPUT: ${{ inputs.output }}
+      run: |
+        pip install -U setuptools coverage-badge
+        EXTRA_ARGS=""
+
+        if [[ "$OVERWRITE" == 'true'  ]]; then
+          EXTRA_ARGS+="-f"
+        fi
+
+        coverage-badge $EXTRA_ARGS -o "$OUTPUT"
+      shell: bash
+branding:
+  icon: check-circle
+  color: white
