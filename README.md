@@ -9,6 +9,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
 | v2.0.2 | [`v2.0.2`](https://github.com/chainguard-actions/tj-actions-coverage-badge-py/tree/v2.0.2) | [`06a3e86`](https://github.com/tj-actions/coverage-badge-py/commit/06a3e86bbf45e022b0ce478073dc68119e457c45) |
+| v2.0.3 | [`v2.0.3`](https://github.com/chainguard-actions/tj-actions-coverage-badge-py/tree/v2.0.3) | [`782bdaa`](https://github.com/tj-actions/coverage-badge-py/commit/782bdaaa8b2e37612e6b6fac5e559e5544e6eef2) |
 | v2.0.4 | [`v2.0.4`](https://github.com/chainguard-actions/tj-actions-coverage-badge-py/tree/v2.0.4) | [`1788bab`](https://github.com/tj-actions/coverage-badge-py/commit/1788babcb24544eb5bbb6e0d374df5d1e54e670f) |
 
 ## Privacy
