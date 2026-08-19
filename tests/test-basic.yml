@@ -1,0 +1,42 @@
+name: Test basic usage - default output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install coverage and coverage-badge
+        run: pip install coverage coverage-badge
+
+      - name: Generate .coverage file
+        working-directory: tests/fixtures/test_package
+        run: |
+          python -m coverage run -m unittest test_main -v
+          ls -la .coverage
+
+      - id: action
+        uses: .
+        with:
+          working-directory: tests/fixtures/test_package
+          output: coverage.svg
+          overwrite: 'true'
+
+      - name: Assert coverage.svg was created
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/tests/fixtures/test_package/coverage.svg" ]; then
+            echo "FAIL: coverage.svg was not created"
+            exit 1
+          fi
+          echo "PASS: coverage.svg exists"
+
+      - name: Assert coverage.svg contains SVG content
+        run: |
+          CONTENT=$(cat "$GITHUB_WORKSPACE/tests/fixtures/test_package/coverage.svg")
+          echo "content preview: ${CONTENT:0:100}"
+          if ! echo "$CONTENT" | grep -qi "svg"; then
+            echo "FAIL: coverage.svg does not appear to be an SVG file"
+            exit 1
+          fi
+          echo "PASS: coverage.svg contains SVG content"

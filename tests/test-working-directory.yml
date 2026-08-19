@@ -1,0 +1,49 @@
+name: Test working-directory input for coverage badge
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Generate .coverage file in a subdirectory
+        run: |
+          pip install coverage
+          # Create a project subdirectory with Python files
+          mkdir -p "$GITHUB_WORKSPACE/myproject"
+          cp "$GITHUB_WORKSPACE/test_package/main.py" "$GITHUB_WORKSPACE/myproject/"
+          cp "$GITHUB_WORKSPACE/test_package/test_main.py" "$GITHUB_WORKSPACE/myproject/"
+          # Run coverage in the subdirectory
+          cd "$GITHUB_WORKSPACE/myproject"
+          python -m coverage run -m unittest test_main
+          python -m coverage report
+          echo "Files in myproject:"
+          ls -la "$GITHUB_WORKSPACE/myproject/"
+
+      - id: action
+        uses: .
+        with:
+          output: coverage.svg
+          overwrite: 'true'
+          working-directory: myproject
+
+      - name: Assert coverage badge was created in working directory
+        run: |
+          echo "Checking for myproject/coverage.svg..."
+          if [ ! -f "myproject/coverage.svg" ]; then
+            echo "FAIL: myproject/coverage.svg was not created"
+            ls -la myproject/ || echo "myproject/ directory does not exist"
+            exit 1
+          fi
+          echo "PASS: myproject/coverage.svg exists"
+
+      - name: Assert badge is valid SVG
+        run: |
+          echo "Checking SVG content..."
+          if ! grep -q "<svg" myproject/coverage.svg; then
+            echo "FAIL: myproject/coverage.svg does not appear to be a valid SVG"
+            cat myproject/coverage.svg
+            exit 1
+          fi
+          echo "PASS: myproject/coverage.svg contains SVG content"

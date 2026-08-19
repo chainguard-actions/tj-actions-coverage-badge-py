@@ -1,0 +1,48 @@
+name: Test overwrite true - overwrites existing badge
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install coverage and coverage-badge
+        run: pip install coverage coverage-badge
+
+      - name: Generate .coverage file
+        working-directory: tests/fixtures/test_package
+        run: |
+          python -m coverage run -m unittest test_main -v
+          ls -la .coverage
+
+      - name: Pre-create the badge file to simulate existing badge
+        working-directory: tests/fixtures/test_package
+        run: |
+          echo '<svg>old badge content</svg>' > overwrite-test.svg
+
+      - id: action
+        uses: .
+        with:
+          working-directory: tests/fixtures/test_package
+          output: overwrite-test.svg
+          overwrite: 'true'
+
+      - name: Assert badge was overwritten with new SVG content
+        working-directory: tests/fixtures/test_package
+        run: |
+          if [ ! -f overwrite-test.svg ]; then
+            echo "FAIL: overwrite-test.svg does not exist"
+            exit 1
+          fi
+          CONTENT=$(cat overwrite-test.svg)
+          echo "content preview: ${CONTENT:0:200}"
+          if echo "$CONTENT" | grep -q "old badge content"; then
+            echo "FAIL: badge still contains old content - was not overwritten"
+            exit 1
+          fi
+          if ! echo "$CONTENT" | grep -qi "svg"; then
+            echo "FAIL: overwrite-test.svg does not appear to be a valid SVG"
+            exit 1
+          fi
+          echo "PASS: badge was successfully overwritten with new SVG content"

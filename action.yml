@@ -37,17 +37,17 @@ runs:
     - id: coverage-badge
       working-directory: ${{ inputs.working-directory }}
       env:
-        OVERWRITE: ${{ inputs.overwrite }}
-        OUTPUT: ${{ inputs.output }}
+        INPUT_OVERWRITE: ${{ inputs.overwrite }}
+        INPUT_OUTPUT: ${{ inputs.output }}
       run: |
         pip install -U coverage-badge
         EXTRA_ARGS=""
 
-        if [[ "$OVERWRITE" == 'true'  ]]; then
+        if [[ "$INPUT_OVERWRITE" == 'true'  ]]; then
           EXTRA_ARGS+="-f"
         fi
 
-        coverage-badge $EXTRA_ARGS -o "$OUTPUT"
+        coverage-badge $EXTRA_ARGS -o "$INPUT_OUTPUT"
       shell: bash
 branding:
   icon: check-circle

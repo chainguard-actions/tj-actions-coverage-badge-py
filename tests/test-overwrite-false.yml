@@ -1,0 +1,52 @@
+name: Test overwrite false - fails when badge already exists
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install coverage and coverage-badge
+        run: pip install coverage coverage-badge
+
+      - name: Generate .coverage file
+        working-directory: tests/fixtures/test_package
+        run: |
+          python -m coverage run -m unittest test_main -v
+          ls -la .coverage
+
+      - name: Pre-create the badge file to simulate existing badge
+        working-directory: tests/fixtures/test_package
+        run: |
+          echo '<svg>existing badge</svg>' > existing-badge.svg
+
+      - name: Run action with overwrite=false (should fail since file exists)
+        id: action-overwrite-false
+        uses: .
+        with:
+          working-directory: tests/fixtures/test_package
+          output: existing-badge.svg
+          overwrite: 'false'
+        continue-on-error: true
+
+      - name: Assert action failed when overwrite=false and file exists
+        run: |
+          OUTCOME="${{ steps.action-overwrite-false.outcome }}"
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when overwrite=false and badge already exists, but got: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when overwrite=false and badge already exists"
+
+      - name: Assert existing badge was NOT overwritten
+        working-directory: tests/fixtures/test_package
+        run: |
+          CONTENT=$(cat existing-badge.svg)
+          echo "content: $CONTENT"
+          if [ "$CONTENT" != "<svg>existing badge</svg>" ]; then
+            echo "FAIL: existing badge was overwritten despite overwrite=false"
+            exit 1
+          fi
+          echo "PASS: existing badge was preserved"
