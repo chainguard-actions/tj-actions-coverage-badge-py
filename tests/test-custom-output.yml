@@ -1,0 +1,52 @@
+name: Test custom output path for coverage badge
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file
+        run: |
+          pip install coverage pytest
+          cat > /tmp/sample.py << 'EOF'
+          def multiply(a, b):
+              return a * b
+          EOF
+          cat > /tmp/test_sample.py << 'EOF'
+          import sys
+          sys.path.insert(0, '/tmp')
+          from sample import multiply
+
+          def test_multiply():
+              assert multiply(3, 4) == 12
+          EOF
+          cd /tmp
+          python -m coverage run -m pytest test_sample.py
+          python -m coverage report
+          cp /tmp/.coverage "$GITHUB_WORKSPACE/.coverage"
+
+      - name: Create output directory
+        run: mkdir -p "$GITHUB_WORKSPACE/badges"
+
+      - id: action
+        uses: .
+        with:
+          output: badges/my-coverage.svg
+          overwrite: 'true'
+
+      - name: Assert badge was created at custom path
+        run: |
+          echo "Checking for badges/my-coverage.svg..."
+          if [ ! -f "$GITHUB_WORKSPACE/badges/my-coverage.svg" ]; then
+            echo "FAIL: badges/my-coverage.svg was not created"
+            exit 1
+          fi
+          echo "PASS: badges/my-coverage.svg exists"
+          # Verify it's an SVG file
+          if ! grep -q '<svg' "$GITHUB_WORKSPACE/badges/my-coverage.svg"; then
+            echo "FAIL: badges/my-coverage.svg does not appear to be a valid SVG"
+            exit 1
+          fi
+          echo "PASS: badges/my-coverage.svg is a valid SVG"

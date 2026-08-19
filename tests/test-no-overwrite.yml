@@ -1,0 +1,62 @@
+name: Test overwrite false - action should fail if badge exists
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file
+        run: |
+          pip install coverage pytest
+          cat > /tmp/sample.py << 'EOF'
+          def divide(a, b):
+              return a / b
+          EOF
+          cat > /tmp/test_sample.py << 'EOF'
+          import sys
+          sys.path.insert(0, '/tmp')
+          from sample import divide
+
+          def test_divide():
+              assert divide(10, 2) == 5.0
+          EOF
+          cd /tmp
+          python -m coverage run -m pytest test_sample.py
+          python -m coverage report
+          cp /tmp/.coverage "$GITHUB_WORKSPACE/.coverage"
+
+      - name: Create an existing badge file
+        run: |
+          echo '<svg>existing badge</svg>' > "$GITHUB_WORKSPACE/coverage.svg"
+          echo "Created existing coverage.svg"
+
+      - name: Run action with overwrite=false (expect failure)
+        id: action-no-overwrite
+        uses: .
+        with:
+          output: coverage.svg
+          overwrite: 'false'
+        continue-on-error: true
+
+      - name: Assert action failed when overwrite is false and file exists
+        env:
+          OUTCOME: ${{ steps.action-no-overwrite.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when overwrite=false and badge already exists, but outcome was: $OUTCOME"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when overwrite=false and badge already exists"
+
+      - name: Verify original badge was not overwritten
+        run: |
+          CONTENT=$(cat "$GITHUB_WORKSPACE/coverage.svg")
+          echo "Badge content: $CONTENT"
+          if [ "$CONTENT" != "<svg>existing badge</svg>" ]; then
+            echo "FAIL: existing badge was overwritten despite overwrite=false"
+            exit 1
+          fi
+          echo "PASS: existing badge was preserved"

@@ -1,0 +1,57 @@
+name: Test basic coverage badge generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file
+        run: |
+          pip install coverage pytest
+          # Write sample module and test inline
+          cat > /tmp/sample.py << 'EOF'
+          def add(a, b):
+              return a + b
+
+          def subtract(a, b):
+              return a - b
+          EOF
+          cat > /tmp/test_sample.py << 'EOF'
+          import sys
+          sys.path.insert(0, '/tmp')
+          from sample import add, subtract
+
+          def test_add():
+              assert add(1, 2) == 3
+
+          def test_subtract():
+              assert subtract(5, 3) == 2
+          EOF
+          cd /tmp
+          python -m coverage run -m pytest test_sample.py
+          python -m coverage report
+          # Copy .coverage to workspace root so coverage-badge can find it
+          cp /tmp/.coverage "$GITHUB_WORKSPACE/.coverage"
+
+      - id: action
+        uses: .
+        with:
+          output: coverage.svg
+          overwrite: 'true'
+
+      - name: Assert badge was created
+        run: |
+          echo "Checking for coverage.svg..."
+          if [ ! -f "$GITHUB_WORKSPACE/coverage.svg" ]; then
+            echo "FAIL: coverage.svg was not created"
+            exit 1
+          fi
+          echo "PASS: coverage.svg exists"
+          # Verify it's an SVG file
+          if ! grep -q '<svg' "$GITHUB_WORKSPACE/coverage.svg"; then
+            echo "FAIL: coverage.svg does not appear to be a valid SVG"
+            exit 1
+          fi
+          echo "PASS: coverage.svg is a valid SVG"
