@@ -1,0 +1,64 @@
+name: Test working-directory input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file in subdirectory
+        run: |
+          pip install coverage coverage-badge
+          mkdir -p "$GITHUB_WORKSPACE/myproject"
+          cat > "$GITHUB_WORKSPACE/myproject/cov_divide.py" << 'EOF'
+          def divide(a, b):
+              return a / b
+          EOF
+          cat > "$GITHUB_WORKSPACE/myproject/test_cov_divide.py" << 'EOF'
+          import unittest
+          import sys, os
+          sys.path.insert(0, os.path.dirname(__file__))
+          from cov_divide import divide
+          class TestDivide(unittest.TestCase):
+              def test_divide(self):
+                  self.assertEqual(divide(10, 2), 5.0)
+          if __name__ == '__main__':
+              unittest.main()
+          EOF
+          # Run coverage directly in the myproject subdirectory
+          cd "$GITHUB_WORKSPACE/myproject"
+          coverage run test_cov_divide.py
+          echo "Coverage data generated in myproject/:"
+          coverage report
+
+      - id: action
+        uses: .
+        with:
+          output: 'coverage.svg'
+          overwrite: 'true'
+          working-directory: 'myproject'
+
+      - name: Assert badge was created in working directory
+        run: |
+          echo "Checking for myproject/coverage.svg..."
+          if [ ! -f "$GITHUB_WORKSPACE/myproject/coverage.svg" ]; then
+            echo "FAIL: myproject/coverage.svg was not created"
+            ls -la "$GITHUB_WORKSPACE/myproject/" || true
+            exit 1
+          fi
+          echo "PASS: myproject/coverage.svg exists"
+
+      - name: Assert badge is valid SVG
+        run: |
+          echo "Checking SVG content..."
+          if ! grep -q '<svg' "$GITHUB_WORKSPACE/myproject/coverage.svg"; then
+            echo "FAIL: myproject/coverage.svg does not appear to be a valid SVG"
+            cat "$GITHUB_WORKSPACE/myproject/coverage.svg"
+            exit 1
+          fi
+          echo "PASS: myproject/coverage.svg is a valid SVG"
+
+      - name: Assert working-directory test complete
+        run: |
+          echo "PASS: working-directory test complete"

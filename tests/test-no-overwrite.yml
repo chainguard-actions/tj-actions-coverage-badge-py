@@ -1,0 +1,64 @@
+name: Test no-overwrite - existing badge preserved
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file in workspace
+        run: |
+          pip install coverage coverage-badge
+          cat > "$GITHUB_WORKSPACE/cov_subtract.py" << 'EOF'
+          def subtract(a, b):
+              return a - b
+          EOF
+          cat > "$GITHUB_WORKSPACE/test_cov_subtract.py" << 'EOF'
+          import unittest
+          import sys, os
+          sys.path.insert(0, os.path.dirname(__file__))
+          from cov_subtract import subtract
+          class TestSubtract(unittest.TestCase):
+              def test_subtract(self):
+                  self.assertEqual(subtract(5, 3), 2)
+          if __name__ == '__main__':
+              unittest.main()
+          EOF
+          cd "$GITHUB_WORKSPACE"
+          coverage run test_cov_subtract.py
+          echo "Coverage data generated:"
+          coverage report
+
+      - name: Create a pre-existing badge file
+        run: |
+          echo "ORIGINAL_CONTENT" > "$GITHUB_WORKSPACE/coverage.svg"
+          echo "Pre-existing badge created"
+
+      - name: Run action with overwrite=false (should fail since file exists)
+        id: action-no-overwrite
+        uses: .
+        with:
+          output: 'coverage.svg'
+          overwrite: 'false'
+        continue-on-error: true
+
+      - name: Assert action failed when overwrite=false and file exists
+        run: |
+          echo "outcome: ${{ steps.action-no-overwrite.outcome }}"
+          if [ "${{ steps.action-no-overwrite.outcome }}" != "failure" ]; then
+            echo "FAIL: expected action to fail when overwrite=false and file exists, but got: ${{ steps.action-no-overwrite.outcome }}"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when overwrite=false and file already exists"
+
+      - name: Assert original badge was not overwritten
+        run: |
+          echo "Checking badge content..."
+          CONTENT=$(cat "$GITHUB_WORKSPACE/coverage.svg")
+          echo "Content: $CONTENT"
+          if [ "$CONTENT" != "ORIGINAL_CONTENT" ]; then
+            echo "FAIL: original badge was overwritten despite overwrite=false"
+            exit 1
+          fi
+          echo "PASS: original badge was preserved"

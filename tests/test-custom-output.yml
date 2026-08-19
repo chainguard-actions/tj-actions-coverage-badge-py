@@ -1,0 +1,60 @@
+name: Test custom output path
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file in workspace
+        run: |
+          pip install coverage coverage-badge
+          cat > "$GITHUB_WORKSPACE/cov_multiply.py" << 'EOF'
+          def multiply(a, b):
+              return a * b
+          EOF
+          cat > "$GITHUB_WORKSPACE/test_cov_multiply.py" << 'EOF'
+          import unittest
+          import sys, os
+          sys.path.insert(0, os.path.dirname(__file__))
+          from cov_multiply import multiply
+          class TestMultiply(unittest.TestCase):
+              def test_multiply(self):
+                  self.assertEqual(multiply(3, 4), 12)
+          if __name__ == '__main__':
+              unittest.main()
+          EOF
+          cd "$GITHUB_WORKSPACE"
+          coverage run test_cov_multiply.py
+          echo "Coverage data generated:"
+          coverage report
+          # Pre-create the output directory since coverage-badge may not create it
+          mkdir -p "$GITHUB_WORKSPACE/badges"
+
+      - id: action
+        uses: .
+        with:
+          output: 'badges/my-coverage.svg'
+          overwrite: 'true'
+
+      - name: Assert custom badge file was created
+        run: |
+          echo "Checking for badges/my-coverage.svg..."
+          if [ ! -f "$GITHUB_WORKSPACE/badges/my-coverage.svg" ]; then
+            echo "FAIL: badges/my-coverage.svg was not created"
+            ls -la "$GITHUB_WORKSPACE/" || true
+            ls -la "$GITHUB_WORKSPACE/badges/" || true
+            exit 1
+          fi
+          echo "PASS: badges/my-coverage.svg exists"
+
+      - name: Assert custom badge is valid SVG
+        run: |
+          echo "Checking SVG content..."
+          if ! grep -q '<svg' "$GITHUB_WORKSPACE/badges/my-coverage.svg"; then
+            echo "FAIL: badges/my-coverage.svg does not appear to be a valid SVG"
+            cat "$GITHUB_WORKSPACE/badges/my-coverage.svg"
+            exit 1
+          fi
+          echo "PASS: badges/my-coverage.svg is a valid SVG"

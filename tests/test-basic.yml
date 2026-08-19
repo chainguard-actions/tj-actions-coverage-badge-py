@@ -1,0 +1,58 @@
+name: Test basic usage - default output
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python and generate .coverage file in workspace
+        run: |
+          pip install coverage coverage-badge
+          # Create a simple Python module and test in the workspace
+          cat > "$GITHUB_WORKSPACE/cov_main.py" << 'EOF'
+          def add(a, b):
+              return a + b
+          EOF
+          cat > "$GITHUB_WORKSPACE/test_cov_main.py" << 'EOF'
+          import unittest
+          import sys, os
+          sys.path.insert(0, os.path.dirname(__file__))
+          from cov_main import add
+          class TestAdd(unittest.TestCase):
+              def test_add(self):
+                  self.assertEqual(add(1, 2), 3)
+          if __name__ == '__main__':
+              unittest.main()
+          EOF
+          cd "$GITHUB_WORKSPACE"
+          coverage run test_cov_main.py
+          echo "Coverage data generated:"
+          coverage report
+
+      - id: action
+        uses: .
+        with:
+          output: 'coverage.svg'
+          overwrite: 'true'
+
+      - name: Assert badge file was created
+        run: |
+          echo "Checking for coverage.svg..."
+          if [ ! -f "$GITHUB_WORKSPACE/coverage.svg" ]; then
+            echo "FAIL: coverage.svg was not created"
+            ls -la "$GITHUB_WORKSPACE/" || true
+            exit 1
+          fi
+          echo "PASS: coverage.svg exists"
+
+      - name: Assert badge is valid SVG
+        run: |
+          echo "Checking SVG content..."
+          if ! grep -q '<svg' "$GITHUB_WORKSPACE/coverage.svg"; then
+            echo "FAIL: coverage.svg does not appear to be a valid SVG"
+            cat "$GITHUB_WORKSPACE/coverage.svg"
+            exit 1
+          fi
+          echo "PASS: coverage.svg is a valid SVG"
