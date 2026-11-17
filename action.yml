@@ -14,6 +14,7 @@ inputs:
     description: 'Current working directory'
     required: false
     default: '.'
+
 runs:
   using: 'composite'
   steps:
